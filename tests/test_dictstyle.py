@@ -217,3 +217,20 @@ def _test_attaching():
 
 
     record['authors'][0]['age']
+
+
+def test_with_statement_simple():
+
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    data = JSONDict({
+        'authors': [{'family_name': 'Ellis'}]
+    }, schema=schema)
+
+    with data.transaction_delayed as d:
+        d['authors'] = 100
+        d['authors'] = [{'family_name': 'Cranmer'}]
+
+    assert len(data['authors']) == 1
+    assert data['authors'][0]['family_name'] == 'Cranmer'
+

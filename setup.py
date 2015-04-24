@@ -85,6 +85,7 @@ setup(
     install_requires=[
         'jsonschema',
         'six',
+        'werkzeug'
     ],
     extras_require={
         'docs': ['sphinx_rtd_theme'],
