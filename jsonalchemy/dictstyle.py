@@ -34,27 +34,34 @@ class JSONBase(object):
 
     def __init__(self, schema, callbacks):
         self.schema = schema or {}
+        print self.schema
         callbacks = callbacks or getattr(self.__class__, '__callbacks__', {})
         self.callbacks = {}
         self.callbacks.update(callbacks)
 
+    def _copy_element(self, element):
+        try:
+            return element.copy()
+        except AttributeError:
+            return element
+
     @property
     def transaction_delayed(self):
 
-        class JSONTransactionDelayed(MultiDict):
+        class JSONTransactionDelayed(object):
             def __init__(self, json):
-                MultiDict.__init__(self, json.iteritems())
                 self._json = json
+                self._copy = self._json.copy()
 
             def __enter__(self):
-                return self
+                return self._copy
 
             def __exit__(self, type, value, traceback):
                 if not type:
                     # There was no exception
-                    validate(self,
+                    validate(self._copy,
                              self._json.schema)
-                    self._json.update(self)
+                    self._json.update(self._copy)
 
         return JSONTransactionDelayed(self)
 
@@ -71,7 +78,6 @@ class JSONDict(collections.Mapping, JSONBase):
             for name, value in iteritems(mapping)
         }
 
-        print "Validate"
         validate(self, self.schema)
 
     def __iter__(self):
@@ -98,7 +104,6 @@ class JSONDict(collections.Mapping, JSONBase):
         self.dict[name] = value
 
         try:
-            print "Validate!"
             validate(self, self.schema)
         except ValidationError as e:
             # rollback the dict modification
@@ -112,12 +117,15 @@ class JSONDict(collections.Mapping, JSONBase):
         value = self.dict.pop(name)
 
         try:
-            print "Validate"
             validate(self, self.schema)
         except ValidationError as e:
             # rollback the dict modification
             self.dict[name] = value
             raise e
+
+    def copy(self):
+        return {self._copy_element(k): self._copy_element(v) for k, v
+                in self.dict.iteritems()}
 
     def update(self, other_dict):
         self.dict.update(other_dict)
@@ -133,7 +141,6 @@ class JSONList(collections.Iterable, JSONBase):
         self.list = [wrap(value, value_schema, self.callbacks.get(None, None))
                      for value in iterable]
 
-        print "Validate"
         validate(self, self.schema)
 
     def __getitem__(self, index):
@@ -148,6 +155,8 @@ class JSONList(collections.Iterable, JSONBase):
     def __eq__(self, value):
         return self.list == value
 
-    @property
-    def _content(self):
-        return self.list
+    def copy(self):
+        return map(lambda x: self._copy_element(x), self.list)
+
+    def update(self, copy):
+        self.__init__(copy, self.schema, self.callbacks)

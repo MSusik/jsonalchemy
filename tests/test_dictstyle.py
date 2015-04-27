@@ -219,7 +219,7 @@ def _test_attaching():
     record['authors'][0]['age']
 
 
-def test_with_statement_simple():
+def test_with_statement_no_validation():
 
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
 
@@ -228,9 +228,45 @@ def test_with_statement_simple():
     }, schema=schema)
 
     with data.transaction_delayed as d:
+        d['authors'] = [{'family_name': 7}]
         d['authors'] = 100
         d['authors'] = [{'family_name': 'Cranmer'}]
 
     assert len(data['authors']) == 1
     assert data['authors'][0]['family_name'] == 'Cranmer'
+    assert isinstance(data, JSONDict)
+    assert isinstance(data.dict['authors'], JSONList)
+    assert isinstance(data.dict['authors'].list[0], JSONDict)
 
+
+def test_with_statement_raises():
+
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    data = JSONDict({
+        'authors': [{'family_name': 'Ellis'}]
+    }, schema=schema)
+
+    with pytest.raises(ValidationError) as excinfo:
+        with data.transaction_delayed as d:
+            d['authors'] = 100
+
+    assert 'is not of type' in str(excinfo.value)
+    assert data.dict['authors'].list[0].dict['family_name'] == 'Ellis'
+    assert isinstance(data, JSONDict)
+    assert isinstance(data.dict['authors'], JSONList)
+    assert isinstance(data.dict['authors'].list[0], JSONDict)
+
+
+def test_with_statement_list():
+
+    schema = load_schema_from_url(abs_path('schemas/list.json'))
+
+    data = JSONList(['list0'], schema=schema)
+
+    with data.transaction_delayed as d:
+        d[0] = 7
+        d[0] = 'list1'
+
+    assert len(data) == 1
+    assert data[0] == 'list1'
