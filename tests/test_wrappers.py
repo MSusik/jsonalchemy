@@ -53,8 +53,10 @@ def test_invalid_type():
     schema = load_schema_from_url(abs_path('schemas/invalid_type.json'))
     invalid_data = {'my_field': 'test'}
 
+    data = JSONDict(invalid_data, schema)
+
     with pytest.raises(UnknownType):
-        data = JSONDict(invalid_data, schema)
+        data.validate()
 
 
 def test_data_load():
@@ -71,10 +73,10 @@ def test_data_load():
     assert data['my_field'] == valid_data['my_field']
 
     with pytest.raises(ValidationError):
-        JSONDict(invalid_type_data, schema=schema)
+        JSONDict(invalid_type_data, schema=schema).validate()
 
     with pytest.raises(ValidationError):
-        JSONDict(wrong_field_data, schema=schema)
+        JSONDict(wrong_field_data, schema=schema).validate()
 
 
 def test_data_set():
@@ -86,7 +88,8 @@ def test_data_set():
     assert empty_data['my_field'] == 'valid value'
 
     with pytest.raises(ValidationError):
-        empty_data['my_field'] = 666
+        with empty_data.validation as d:
+            d['my_field'] = 666
     assert empty_data['my_field'] != 666
 
 
@@ -98,10 +101,10 @@ def test_data_delete():
         'identifier': 1,
         'my_field': 'test'
     }, schema=schema)
+    del data['identifier']
 
     with pytest.raises(ValidationError):
-        del data['identifier']
-    assert 'identifier' in data
+        data.validate()
 
     del data['my_field']
     assert 'my_field' not in data
@@ -116,7 +119,8 @@ def test_data_rollback():
     }, schema=schema)
 
     with pytest.raises(ValidationError):
-        data['my_field'] = 666
+        with data.validation as d:
+            d['my_field'] = 666
     assert 'my_field' not in data
 
 
@@ -159,3 +163,74 @@ def test_wrapper_subclass():
 
     assert data['authors'][0]['family_name'] == 'Ellis'
     assert isinstance(data['authors'], JSONList)
+
+
+def test_with_statement_no_validation():
+
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    data = JSONDict({
+        'authors': [{'family_name': 'Ellis'}]
+    }, schema=schema)
+
+    with data.validation as d:
+        d['authors'][0]['family_name'] = 7
+        d['authors'][0]['family_name'] = 'Cranmer'
+
+    assert len(data['authors']) == 1
+    assert data['authors'][0]['family_name'] == 'Cranmer'
+    assert isinstance(data, JSONDict)
+    assert isinstance(data.dict['authors'], JSONList)
+    assert isinstance(data.dict['authors'].list[0], JSONDict)
+
+
+def test_with_statement_assignment():
+
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    data = JSONDict({
+        'authors': [{'family_name': 'Ellis'}]
+    }, schema=schema)
+
+    with data.validation as d:
+        d['authors'] = [{'family_name': 'Cranmer'}]
+
+    assert len(data['authors']) == 1
+    assert data['authors'][0]['family_name'] == 'Cranmer'
+    assert isinstance(data, JSONDict)
+    assert isinstance(data.dict['authors'], JSONList)
+    assert isinstance(data.dict['authors'].list[0], JSONDict)
+
+
+def test_with_statement_raises():
+
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    data = JSONDict({
+        'authors': [{'family_name': 'Ellis'}]
+    }, schema=schema)
+
+    with pytest.raises(ValidationError) as excinfo:
+        with data.validation as d:
+            d['authors'] = 100
+
+    assert 'is not of type' in str(excinfo.value)
+    assert data.dict['authors'].list[0].dict['family_name'] == 'Ellis'
+    assert isinstance(data, JSONDict)
+    assert isinstance(data.dict['authors'], JSONList)
+    assert isinstance(data.dict['authors'].list[0], JSONDict)
+
+
+@pytest.mark.xfail
+def test_with_statement_list():
+
+    schema = load_schema_from_url(abs_path('schemas/list.json'))
+
+    data = JSONList(['list0'], schema=schema)
+
+    with data.validation as d:
+        d[0] = 7
+        d[0] = 'list1'
+
+    assert len(data) == 1
+    assert data[0] == 'list1'

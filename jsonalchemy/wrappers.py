@@ -51,19 +51,49 @@ def wrap(value, value_schema):
     return value
 
 
-class JSONDict(collections.Mapping):
+class JSONBase(object):
+
+    def __init__(self, schema=None):
+        self.schema = schema or {}
+
+    def _copy_element(self, element):
+        try:
+            return element.copy_()
+        except AttributeError:
+            return element
+
+    @property
+    def validation(parent):
+
+        class JSONValidation(parent.__class__):
+            def __init__(self, json):
+                self._json = json
+                super(JSONValidation,
+                      self).__init__(parent._copy_element(json))
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, type, value, traceback):
+                if not type:
+                    # There was no exception
+                    validate(self,
+                             self._json.schema)
+                    self._json.update(self)
+
+        return JSONValidation(parent)
+
+
+class JSONDict(collections.Mapping, JSONBase):
 
     def __init__(self, mapping=None, schema=None):
-        self.schema = schema or {}
         mapping = mapping or {}
-
+        JSONBase.__init__(self, schema)
         properties = self.schema.get('properties', {})
         self.dict = {
             name: wrap(value, properties.get(name, None))
             for name, value in iteritems(mapping)
         }
-
-        validate(self.dict, self.schema)
 
     def __iter__(self):
         return iter(self.dict)
@@ -78,45 +108,30 @@ class JSONDict(collections.Mapping):
         return self.dict[name]
 
     def __setitem__(self, name, value):
-        has_key = name in self.dict
-        old_value = self.dict.get(name, None)
-
-        value_schema = self.schema.get('properties', {}).get(name, None)
-        value = wrap(value, value_schema)
-
         self.dict[name] = value
-
-        try:
-            validate(self, self.schema)
-        except ValidationError as e:
-            # rollback the dict modification
-            if has_key:
-                self.dict[name] = old_value
-            else:
-                del self.dict[name]
-            raise e
 
     def __delitem__(self, name):
         value = self.dict.pop(name)
 
-        try:
-            validate(self, self.schema)
-        except ValidationError as e:
-            # rollback the dict modification
-            self.dict[name] = value
-            raise e
+    def copy_(self):
+        return JSONDict({self._copy_element(k): self._copy_element(v) for k, v
+                         in iteritems(self.dict)})
+
+    # Implement proper update
+    def update(self, other_dict):
+        self.dict.update(wrap(other_dict.dict, self.schema))
+
+    def validate(self):
+        return validate(self, self.schema)
 
 
-class JSONList(collections.Iterable):
+class JSONList(collections.Iterable, JSONBase):
 
     def __init__(self, iterable=None, schema=None):
-        self.schema = schema or {}
         iterable = iterable or []
-
+        JSONBase.__init__(self, schema)
         value_schema = self.schema.get('items', None)
         self.list = [wrap(value, value_schema) for value in iterable]
-
-        validate(self.list, self.schema)
 
     def __getitem__(self, index):
         return self.list[index]
@@ -129,3 +144,12 @@ class JSONList(collections.Iterable):
 
     def __eq__(self, value):
         return self.list == value
+
+    def copy_(self):
+        return JSONList(map(lambda x: self._copy_element(x), self.list))
+
+    def update(self, copy):
+        self.__init__(self, copy, self.schema)
+
+    def validate(self):
+        return validate(self, self.schema)
