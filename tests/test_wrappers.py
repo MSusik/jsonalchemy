@@ -27,7 +27,11 @@ import pytest
 from datetime import datetime
 
 from jsonalchemy.utils import load_schema_from_url
-from jsonalchemy.wrappers import JSONDict, JSONList
+from jsonalchemy.wrappers import JSONArray
+from jsonalchemy.wrappers import JSONInteger
+from jsonalchemy.wrappers import JSONNumber
+from jsonalchemy.wrappers import JSONObject
+from jsonalchemy.wrappers import JSONString
 
 from jsonschema import SchemaError, ValidationError
 from jsonschema.exceptions import UnknownType
@@ -37,9 +41,9 @@ from helpers import abs_path
 
 def test_constructor():
     """."""
-    assert JSONDict() == {}
-    assert JSONDict({}) == {}
-    assert JSONDict(None, {}) == {}
+    assert JSONObject() == {}
+    assert JSONObject({}) == {}
+    assert JSONObject(None, {}) == {}
 
 
 def test_malformed_schema():
@@ -48,12 +52,20 @@ def test_malformed_schema():
         schema = load_schema_from_url(abs_path('schemas/missing_bracket.json'))
 
 
+def test_unknown_type():
+    """Instances of types that aren't mapped to JSONBase raise on wrapping."""
+    with pytest.raises(TypeError) as excinfo:
+        data = JSONObject({'1': lambda x: x})
+
+    assert 'Type not defined' in str(excinfo.value)
+
+
 def test_invalid_type():
     """Schemas with invalid types raise UnknownType on use."""
     schema = load_schema_from_url(abs_path('schemas/invalid_type.json'))
     invalid_data = {'my_field': 'test'}
 
-    data = JSONDict(invalid_data, schema)
+    data = JSONObject(invalid_data, schema)
 
     with pytest.raises(UnknownType):
         data.validate()
@@ -66,24 +78,24 @@ def test_data_load():
     invalid_type_data = {'my_field': 1}
     wrong_field_data = {'wrong_field': 'test'}
 
-    data = JSONDict(valid_data, schema)
+    data = JSONObject(valid_data, schema)
 
     assert 'my_field' in data
     assert set(data.keys()) == set(['my_field'])
     assert data['my_field'] == valid_data['my_field']
 
     with pytest.raises(ValidationError):
-        JSONDict(invalid_type_data, schema=schema).validate()
+        JSONObject(invalid_type_data, schema=schema).validate()
 
     with pytest.raises(ValidationError):
-        JSONDict(wrong_field_data, schema=schema).validate()
+        JSONObject(wrong_field_data, schema=schema).validate()
 
 
 def test_data_set():
     """Wrappers can set data."""
     schema = load_schema_from_url(abs_path('schemas/simple.json'))
 
-    empty_data = JSONDict(schema=schema)
+    empty_data = JSONObject(schema=schema)
     empty_data['my_field'] = 'valid value'
     assert empty_data['my_field'] == 'valid value'
 
@@ -97,7 +109,7 @@ def test_data_delete():
     """Wrappers can delete data."""
     schema = load_schema_from_url(abs_path('schemas/required_field.json'))
 
-    data = JSONDict({
+    data = JSONObject({
         'identifier': 1,
         'my_field': 'test'
     }, schema=schema)
@@ -114,7 +126,7 @@ def test_data_rollback():
     """Wrappers rollback invalid edits."""
     schema = load_schema_from_url(abs_path('schemas/required_field.json'))
 
-    data = JSONDict({
+    data = JSONObject({
         'identifier': 1,
     }, schema=schema)
 
@@ -128,7 +140,7 @@ def test_list_wrapper():
     """List wrapper works as if it were a list."""
     schema = load_schema_from_url(abs_path('schemas/list.json'))
 
-    data = JSONList(['foo', 'bar'], schema=schema)
+    data = JSONArray(['foo', 'bar'], schema=schema)
 
     assert data[0] == 'foo'
     assert len(data) == 2
@@ -142,19 +154,19 @@ def test_complex_type_wrapping():
     """Wrappers can be recursively composed."""
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
 
-    data = JSONDict({
+    data = JSONObject({
         'authors': [{'family_name': 'Ellis'}]
     }, schema=schema)
 
     assert data['authors'][0]['family_name'] == 'Ellis'
-    assert isinstance(data['authors'], JSONList)
+    assert isinstance(data['authors'], JSONArray)
 
 
 def test_wrapper_subclass():
     """Subclassing a wrapper preserves its behavior."""
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
 
-    class Record(JSONDict):
+    class Record(JSONObject):
         pass
 
     data = Record({
@@ -162,14 +174,46 @@ def test_wrapper_subclass():
     }, schema=schema)
 
     assert data['authors'][0]['family_name'] == 'Ellis'
-    assert isinstance(data['authors'], JSONList)
+    assert isinstance(data['authors'], JSONArray)
 
 
-def test_with_statement_no_validation():
+def test_multiple_types_field():
+    """Multiple types can be used to define one field."""
+    schema = load_schema_from_url(abs_path('schemas/multiple_types.json'))
+
+    data = JSONObject({'idontknowthetype': [[]]}, schema)
+
+    with pytest.raises(ValidationError) as excinfo:
+        data.validate()
+
+    assert 'is too short' in str(excinfo.value)
+
+    data['idontknowthetype'][0] = ['str']
+    data.validate()
+
+    assert data['idontknowthetype'][0][0].__class__ == JSONString
+
+    data['idontknowthetype'].append({})
+
+    assert data['idontknowthetype'].__class__ == JSONArray
+    assert data['idontknowthetype'][-1].__class__ == JSONObject
+
+    with pytest.raises(ValidationError) as excinfo:
+        data.validate()
+
+    assert 'is a required property' in str(excinfo.value)
+
+    with data.validation as d:
+        d['idontknowthetype'][1]['foo'] = 1
+
+    assert data['idontknowthetype'][1]['foo'].__class__ == JSONInteger
+
+
+def test_with_statement_no_validation_inbetween():
 
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
 
-    data = JSONDict({
+    data = JSONObject({
         'authors': [{'family_name': 'Ellis'}]
     }, schema=schema)
 
@@ -179,16 +223,16 @@ def test_with_statement_no_validation():
 
     assert len(data['authors']) == 1
     assert data['authors'][0]['family_name'] == 'Cranmer'
-    assert isinstance(data, JSONDict)
-    assert isinstance(data.dict['authors'], JSONList)
-    assert isinstance(data.dict['authors'].list[0], JSONDict)
+    assert isinstance(data, JSONObject)
+    assert isinstance(data['authors'], JSONArray)
+    assert isinstance(data['authors'][0], JSONObject)
 
 
 def test_with_statement_assignment():
 
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
 
-    data = JSONDict({
+    data = JSONObject({
         'authors': [{'family_name': 'Ellis'}]
     }, schema=schema)
 
@@ -197,16 +241,16 @@ def test_with_statement_assignment():
 
     assert len(data['authors']) == 1
     assert data['authors'][0]['family_name'] == 'Cranmer'
-    assert isinstance(data, JSONDict)
-    assert isinstance(data.dict['authors'], JSONList)
-    assert isinstance(data.dict['authors'].list[0], JSONDict)
+    assert isinstance(data, JSONObject)
+    assert isinstance(data['authors'], JSONArray)
+    assert isinstance(data['authors'][0], JSONObject)
 
 
 def test_with_statement_raises():
 
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
 
-    data = JSONDict({
+    data = JSONObject({
         'authors': [{'family_name': 'Ellis'}]
     }, schema=schema)
 
@@ -215,18 +259,17 @@ def test_with_statement_raises():
             d['authors'] = 100
 
     assert 'is not of type' in str(excinfo.value)
-    assert data.dict['authors'].list[0].dict['family_name'] == 'Ellis'
-    assert isinstance(data, JSONDict)
-    assert isinstance(data.dict['authors'], JSONList)
-    assert isinstance(data.dict['authors'].list[0], JSONDict)
+    assert data['authors'][0]['family_name'] == 'Ellis'
+    assert isinstance(data, JSONObject)
+    assert isinstance(data['authors'], JSONArray)
+    assert isinstance(data['authors'][0], JSONObject)
 
 
-@pytest.mark.xfail
 def test_with_statement_list():
 
     schema = load_schema_from_url(abs_path('schemas/list.json'))
 
-    data = JSONList(['list0'], schema=schema)
+    data = JSONArray(['list0'], schema=schema)
 
     with data.validation as d:
         d[0] = 7
@@ -234,3 +277,38 @@ def test_with_statement_list():
 
     assert len(data) == 1
     assert data[0] == 'list1'
+
+
+@pytest.mark.parametrize('JSONClass, value, schema',
+                         [(JSONString, 'verylongstring',
+                           {'type': 'string', 'maxLength': 5}),
+                          (JSONNumber, 13.5,
+                           {'type': 'number', 'multipleOf': 0.4}),
+                          (JSONInteger, 13,
+                           {'type': 'integer', 'maximum': 12})])
+def test_immutable_simple(JSONClass, value, schema):
+
+    data = JSONClass(value, schema)
+
+    with pytest.raises(ValidationError) as excinfo:
+        data.validate()
+
+    assert isinstance(data, JSONClass)
+
+
+@pytest.mark.parametrize('JSONClass, value, schema',
+                         [(JSONString, 'verylongstring',
+                           {'type': 'string', 'maxLength': 15}),
+                          (JSONNumber, 13.5,
+                           {'type': 'number', 'multipleOf': 0.5}),
+                          (JSONInteger, 13,
+                           {'type': 'integer', 'maximum': 15})])
+def test_json_string_no_with(JSONClass, value, schema):
+
+    data = JSONClass(value, schema)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        with data.validation as d:
+            d = value
+
+    assert 'is immutable' in str(excinfo.value)

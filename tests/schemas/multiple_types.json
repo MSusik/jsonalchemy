@@ -1,0 +1,22 @@
+{
+    "title": "Test complex schema",
+    "type": "object",
+    "properties": {
+        "idontknowthetype": {
+            "type": "array",
+            "items": {
+                  "type": ["array", "object" ],
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "properties": {
+                    "foo": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [ "foo" ]   
+            }
+        }
+    }
+}
