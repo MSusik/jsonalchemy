@@ -22,7 +22,6 @@
 # or submit itself to any jurisdiction.
 
 from __future__ import unicode_literals
-from numbers import Number
 
 from six import iteritems
 from jsonschema import Draft4Validator
@@ -89,7 +88,7 @@ class JSONBase(object):
 
 class JSONObject(dict, JSONBase):
 
-    def __new__(self, mapping=None, schema=None):
+    def __new__(cls, mapping=None, schema=None):
         mapping = mapping or {}
         schema = schema or {}
         obj = dict.__new__(JSONObject)
@@ -110,7 +109,7 @@ class JSONObject(dict, JSONBase):
 
 class JSONArray(list, JSONBase):
 
-    def __new__(self, iterable=None, schema=None):
+    def __new__(cls, iterable=None, schema=None):
         iterable = iterable or []
         schema = schema or {}
         obj = list.__new__(JSONArray)

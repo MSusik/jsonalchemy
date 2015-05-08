@@ -136,7 +136,7 @@ def test_data_rollback():
     assert 'my_field' not in data
 
 
-def test_list_wrapper():
+def test_array_wrapper():
     """List wrapper works as if it were a list."""
     schema = load_schema_from_url(abs_path('schemas/list.json'))
 
@@ -265,7 +265,7 @@ def test_with_statement_raises():
     assert isinstance(data['authors'][0], JSONObject)
 
 
-def test_with_statement_list():
+def test_with_statement_array():
 
     schema = load_schema_from_url(abs_path('schemas/list.json'))
 
@@ -277,6 +277,41 @@ def test_with_statement_list():
 
     assert len(data) == 1
     assert data[0] == 'list1'
+
+
+def test_array_append():
+
+    data = JSONArray([])
+
+    data.append(13.5)
+    data.append('13.5')
+
+    assert data[0].__class__ == JSONNumber
+    assert data[1].__class__ == JSONString
+    assert data[1] == '13.5'
+
+
+def test_array_extend():
+
+    data = JSONArray([{}])
+    data.extend([13.5, '13.5'])
+
+    assert data[0].__class__ == JSONObject
+    assert data[1].__class__ == JSONNumber
+    assert data[2].__class__ == JSONString
+    assert data == [{}, 13.5, '13.5']
+
+
+def test_array_insert():
+
+    data = JSONArray([1])
+
+    data.insert(0, '2')
+    data.insert(3, 2)
+
+    assert data == ['2', 1, 2]
+    assert data[0].__class__ == JSONString
+    assert data[2].__class__ == JSONInteger
 
 
 @pytest.mark.parametrize('JSONClass, value, schema',
