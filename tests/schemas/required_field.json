@@ -10,5 +10,7 @@
         }
     },
     "additionalProperties": false,
-    "required": ["identifier"]
+    "required": [
+        "identifier"
+    ]
 }
