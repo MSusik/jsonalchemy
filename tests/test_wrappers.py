@@ -24,8 +24,6 @@ from __future__ import absolute_import
 import json
 import pytest
 
-from datetime import datetime
-
 from jsonalchemy.utils import load_schema_from_url
 from jsonalchemy.wrappers import JSONArray
 from jsonalchemy.wrappers import JSONInteger
@@ -33,14 +31,15 @@ from jsonalchemy.wrappers import JSONNumber
 from jsonalchemy.wrappers import JSONObject
 from jsonalchemy.wrappers import JSONString
 
-from jsonschema import SchemaError, ValidationError
+from jsonschema import SchemaError
+from jsonschema import ValidationError
 from jsonschema.exceptions import UnknownType
 
 from helpers import abs_path
 
 
 def test_constructor():
-    """."""
+    """Empty or falsy arguments create empty wrappers."""
     assert JSONObject() == {}
     assert JSONObject({}) == {}
     assert JSONObject(None, {}) == {}
@@ -210,7 +209,7 @@ def test_multiple_types_field():
 
 
 def test_with_statement_no_validation_inbetween():
-
+    """With blocks validate only on __exit__."""
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
 
     data = JSONObject({
@@ -229,7 +228,7 @@ def test_with_statement_no_validation_inbetween():
 
 
 def test_with_statement_assignment():
-
+    """Assignment in with blocks works as expected."""
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
 
     data = JSONObject({
@@ -247,7 +246,7 @@ def test_with_statement_assignment():
 
 
 def test_with_statement_raises():
-
+    """When validation of a with block fails, a ValidationError is thrown."""
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
 
     data = JSONObject({
@@ -266,7 +265,7 @@ def test_with_statement_raises():
 
 
 def test_with_statement_array():
-
+    """Array assignment in with blocks works as expected."""
     schema = load_schema_from_url(abs_path('schemas/list.json'))
 
     data = JSONArray(['list0'], schema=schema)
@@ -280,7 +279,7 @@ def test_with_statement_array():
 
 
 def test_array_append():
-
+    """A JSONArray responds to the append method."""
     data = JSONArray([])
 
     data.append(13.5)
@@ -292,7 +291,7 @@ def test_array_append():
 
 
 def test_array_extend():
-
+    """A JSONArray responds to the extend method."""
     data = JSONArray([{}])
     data.extend([13.5, '13.5'])
 
@@ -303,7 +302,7 @@ def test_array_extend():
 
 
 def test_array_insert():
-
+    """A JSONArray responds to the insert method."""
     data = JSONArray([1])
 
     data.insert(0, '2')
@@ -321,8 +320,8 @@ def test_array_insert():
                            {'type': 'number', 'multipleOf': 0.4}),
                           (JSONInteger, 13,
                            {'type': 'integer', 'maximum': 12})])
-def test_immutable_simple(JSONClass, value, schema):
-
+def test_immutable_validation(JSONClass, value, schema):
+    """Immutable types reject invalid data."""
     data = JSONClass(value, schema)
 
     with pytest.raises(ValidationError) as excinfo:
@@ -338,8 +337,8 @@ def test_immutable_simple(JSONClass, value, schema):
                            {'type': 'number', 'multipleOf': 0.5}),
                           (JSONInteger, 13,
                            {'type': 'integer', 'maximum': 15})])
-def test_json_string_no_with(JSONClass, value, schema):
-
+def test_immutability(JSONClass, value, schema):
+    """Immutable types reject mutations."""
     data = JSONClass(value, schema)
 
     with pytest.raises(RuntimeError) as excinfo:

@@ -5,17 +5,22 @@
         "idontknowthetype": {
             "type": "array",
             "items": {
-                  "type": ["array", "object" ],
-                  "items": {
+                "type": [
+                    "array",
+                    "object"
+                ],
+                "items": {
                     "type": "string"
-                  },
-                  "minItems": 1,
-                  "properties": {
+                },
+                "minItems": 1,
+                "properties": {
                     "foo": {
-                      "type": "number"
+                        "type": "number"
                     }
-                  },
-                  "required": [ "foo" ]   
+                },
+                "required": [
+                    "foo"
+                ]
             }
         }
     }
