@@ -1,0 +1,25 @@
+{
+  "type": "array",
+  "items": [
+    {
+      "type": "number"
+    },
+    {
+      "type": "string"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "my_field": {
+            "type": "string"
+        }
+      }
+    },
+    {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    }
+  ]
+}
