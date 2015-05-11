@@ -314,6 +314,96 @@ def test_array_insert():
     assert data[2].__class__ == JSONInteger
 
 
+def test_array_items_as_list():
+
+    schema = load_schema_from_url(abs_path('schemas/items_in_list.json'))
+
+    data = JSONArray([1600, "Pennsylvania", "Avenue", "NW"], schema)
+
+    data.validate()
+
+    data.pop(1)
+
+    with pytest.raises(ValidationError) as excinfo:
+        data.validate()
+
+    assert "'NW' is not one of" in str(excinfo.value)
+
+    data[2] = "Street"
+    assert data[2].schema == data.schema['items'][2]
+    data.validate()
+
+    data.append('NW')
+    data.append('Washington')
+    data.validate()
+
+    assert data[-1].__class__ == JSONString
+
+
+def test_insert_moves_schema():
+
+    schema = load_schema_from_url(abs_path('schemas/items_in_list.json'))
+
+    data = JSONArray([1, 'Avenue'], schema)
+
+    assert data[0].schema == data.schema['items'][0]
+
+    data.insert(1, 'sth')
+
+    assert data[0].schema == data.schema['items'][0]
+    assert data[2].schema == data.schema['items'][2]
+
+    data.insert(-2, 'other')
+
+    for index in range(0, len(data)):
+        assert data[index].schema == data.schema['items'][index]
+
+
+@pytest.mark.parametrize('i, j, added',
+                         [(1, 3, ["Main", "Street", "NW"]),
+                          (2, -1, ["Stret", "NW", "foo"]),
+                          (0, 2, ["Main"]),
+                          (2, 100, ["Street", "NW"]),
+                          (-2, -1, ["Main", "Street", "NW"]),
+                          (-1, 100, ["NW"])])
+def test_array_setslice(i, j, added):
+
+    schema = load_schema_from_url(abs_path('schemas/items_in_list.json'))
+
+    value = [1, "Washington", "Avenue"]
+
+    data = JSONArray(value, schema)
+    data_list = value
+
+    for index, item in enumerate(data):
+        if 4 > index:
+            assert data.schema['items'][index] == data[index].schema
+
+    data[i:j] = added
+    data_list[i:j] = added
+
+    for index, item in enumerate(data):
+        if 4 > index:
+            assert data.schema['items'][index] == data[index].schema
+        assert data[index] == data_list[index]
+
+
+def test_setslice_deep_schema_change():
+
+    schema = load_schema_from_url(abs_path(
+            'schemas/items_in_list_complex.json'))
+
+    data = JSONArray([1, {"my_field": "something"}, [2.0]], schema)
+
+    with pytest.raises(ValidationError) as excinfo:
+        data.validate()
+
+    assert "is not of type" in str(excinfo.value)
+
+    data.insert(1, "something_else")
+    data.validate()
+
+
 @pytest.mark.parametrize('JSONClass, value, schema',
                          [(JSONString, 'verylongstring',
                            {'type': 'string', 'maxLength': 5}),
