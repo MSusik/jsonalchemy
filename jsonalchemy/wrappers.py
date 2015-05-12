@@ -23,38 +23,39 @@
 
 from __future__ import unicode_literals
 
-from six import iteritems
+from six import iteritems, itervalues
 from jsonschema import Draft4Validator
+from werkzeug import import_string
 
 
-def wrap(value, value_schema):
-
-    def choose_wrapper(value, value_schema):
-
-        if isinstance(value, dict):
-            return JSONObject(value, value_schema)
-        elif isinstance(value, list):
-            return JSONArray(value, value_schema)
-        elif isinstance(value, str):
-            return JSONString(value, value_schema)
-        elif isinstance(value, int):
-            return JSONInteger(value, value_schema)
-        elif isinstance(value, float):
-            return JSONNumber(value, value_schema)
-        raise TypeError('Type not defined in JSON Schema.')
+def wrap(value, value_schema, root):
 
     if isinstance(value, JSONBase) or isinstance(value, bool) or \
             value is None:
         # There is no representation of None and booleans as JSONBase objects.
         return value
 
-    return choose_wrapper(value, value_schema)
+    if isinstance(value, dict):
+        return JSONObject(value, value_schema, root)
+    elif isinstance(value, list):
+        return JSONArray(value, value_schema, root)
+    elif isinstance(value, str):
+        return JSONString(value, value_schema, root)
+    elif isinstance(value, int):
+        return JSONInteger(value, value_schema, root)
+    elif isinstance(value, float):
+        return JSONNumber(value, value_schema, root)
+    raise TypeError('Type not defined in JSON Schema.')
 
 
 class JSONBase(object):
 
-    def __init__(self, schema=None):
+    def __init__(self, schema=None, root=None):
         self.schema = schema or {}
+        if root:
+            self.root = root
+        else:
+            self.root = self
 
     @property
     def validation(parent):
@@ -76,6 +77,7 @@ class JSONBase(object):
         return JSONValidation(parent)
 
     def validate(self):
+        self._validate_external()
         types = {
             'object': (dict, JSONObject,),
             'array': (list, JSONArray,),
@@ -88,24 +90,41 @@ class JSONBase(object):
     def _set_schema(self, schema):
         self.schema = schema
 
+    def _validate_external(self):
+        validation_path = self.schema.get('validation', {})
+        if validation_path:
+            function = import_string(validation_path)
+            if function:
+                function(self)
+
 
 class JSONObject(dict, JSONBase):
 
-    def __new__(cls, mapping=None, schema=None):
+    def __new__(cls, mapping=None, schema=None, root=None):
         mapping = mapping or {}
         schema = schema or {}
         obj = dict.__new__(JSONObject)
-        JSONBase.__init__(obj, schema)
+        JSONBase.__init__(obj, schema, root)
         for name, value in iteritems(mapping):
             obj[name] = value
         return obj
 
-    def __init__(self, mapping=None, schema=None):
+    def __init__(self, mapping=None, schema=None, root=None):
         pass
+
+    def __getitem__(self, name):
+        value_schema = self.schema.get('properties', {}).get(name, None)
+        if value_schema:
+            function_path = value_schema.get('calculated', None)
+            if function_path:
+                function = import_string(function_path)
+                if function:
+                    return function(self.root, self)
+        return dict.__getitem__(self, name)
 
     def __setitem__(self, name, value):
         value_schema = self.schema.get('properties', {}).get(name, None)
-        dict.__setitem__(self, name, wrap(value, value_schema))
+        dict.__setitem__(self, name, wrap(value, value_schema, self.root))
 
     def _set_schema(self, schema):
         self.schema = schema
@@ -115,35 +134,42 @@ class JSONObject(dict, JSONBase):
     def _update(self, other_dict):
         dict.__init__(self, other_dict)
 
+    def _validate_external(self):
+        JSONBase._validate_external(self)
+        for value in itervalues(self):
+            value._validate_external()
+
 
 class JSONArray(list, JSONBase):
 
-    def __new__(cls, iterable=None, schema=None):
+    def __new__(cls, iterable=None, schema=None, root=None):
         iterable = iterable or []
         schema = schema or {}
         obj = list.__new__(JSONArray)
-        JSONBase.__init__(obj, schema)
+        JSONBase.__init__(obj, schema, root)
         for value in iterable:
             obj.append(value)
         return obj
 
-    def __init__(self, iterable=None, schema=None):
+    def __init__(self, iterable=None, schema=None, root=None):
         pass
 
     def __setitem__(self, index, value):
-        list.__setitem__(self, index, wrap(value, self._get_schema(index)))
+        list.__setitem__(self, index, wrap(value, self._get_schema(index),
+                         self.root))
 
     def __setslice__(self, i, j, obj):
         # O(n)!
-        list.__setslice__(self, i, j, [wrap(x, self._get_schema(i + index)) for
-                                       index, x in enumerate(obj)])
+        list.__setslice__(self, i, j, [wrap(x, self._get_schema(i + index),
+                          self.root) for index, x in enumerate(obj)])
         self._recompute_schemas(i + len(obj))
 
     def append(self, obj):
-        list.append(self, wrap(obj, self._get_schema(max(len(self), 0))))
+        list.append(self, wrap(obj, self._get_schema(max(len(self), 0)),
+                    self.root))
 
     def extend(self, obj):
-        list.extend(self, [wrap(x, self._get_schema(index))
+        list.extend(self, [wrap(x, self._get_schema(index), self.root)
                            for index, x in enumerate(obj)])
 
     def insert(self, index, obj):
@@ -151,7 +177,7 @@ class JSONArray(list, JSONBase):
         index = max(min(len(self), index), -len(self))
         if index < 0:
             index = len(self) + index
-        list.insert(self, index, wrap(obj, self._get_schema(index)))
+        list.insert(self, index, wrap(obj, self._get_schema(index), self.root))
         self._recompute_schemas(index)
 
     def _get_schema(self, index):
@@ -182,16 +208,21 @@ class JSONArray(list, JSONBase):
     def _update(self, copy):
         self[:] = copy
 
+    def _validate_external(self):
+        JSONBase._validate_external(self)
+        for item in self:
+            item._validate_external()
+
 
 class JSONString(str, JSONBase):
 
-    def __new__(cls, iterable=None, schema=None):
+    def __new__(cls, iterable=None, schema=None, root=None):
         iterable = iterable or ''
         obj = str.__new__(cls, iterable)
-        JSONBase.__init__(obj, schema)
+        JSONBase.__init__(obj, schema, root)
         return obj
 
-    def __init__(self, iterable=None, schema=None):
+    def __init__(self, iterable=None, schema=None, root=None):
         pass
 
     def _update(self, other_string):
@@ -200,13 +231,13 @@ class JSONString(str, JSONBase):
 
 class JSONNumber(float, JSONBase):
 
-    def __new__(cls, number=None, schema=None):
+    def __new__(cls, number=None, schema=None, root=None):
         number = number or 0
         representation = float.__new__(cls, number)
-        JSONBase.__init__(representation, schema)
+        JSONBase.__init__(representation, schema, root)
         return representation
 
-    def __init__(self, number=None, schema=None):
+    def __init__(self, number=None, schema=None, root=None):
         pass
 
     def _update(self, other_number):
@@ -215,13 +246,13 @@ class JSONNumber(float, JSONBase):
 
 class JSONInteger(int, JSONBase):
 
-    def __new__(cls, number=None, schema=None):
+    def __new__(cls, number=None, schema=None, root=None):
         number = number or 0
         representation = int.__new__(cls, number)
-        JSONBase.__init__(representation, schema)
+        JSONBase.__init__(representation, schema, root)
         return representation
 
-    def __init__(self, number=None, schema=None):
+    def __init__(self, number=None, schema=None, root=None):
         pass
 
     def _update(self, other_integer):

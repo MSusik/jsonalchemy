@@ -9,11 +9,13 @@
                 "properties": {
                     "given_name": {
                         "type": "string",
-                        "minLength": 2
+                        "minLength": 2,
+                        "validation": "jsonalchemy.fortests.helpers.isCorrectName"  
                     },
                     "family_name": {
                         "type": "string",
-                        "minLength": 2
+                        "minLength": 2,
+                        "validation": "jsonalchemy.fortests.helpers.isCorrectName"
                     },
                     "affiliation": {
                         "type": "string",

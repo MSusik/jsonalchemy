@@ -1,0 +1,10 @@
+{
+    "title": "Test calculated fields in a dictionary",
+    "type": "object",
+    "properties": {
+        "author": {
+            "type": "string",
+            "calculated": "jsonalchemy.fortests.helpers.author"          
+        }
+    }
+}

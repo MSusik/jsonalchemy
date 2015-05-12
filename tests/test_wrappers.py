@@ -24,6 +24,7 @@ from __future__ import absolute_import
 import json
 import pytest
 
+from jsonalchemy.fortests.helpers import author
 from jsonalchemy.utils import load_schema_from_url
 from jsonalchemy.wrappers import JSONArray
 from jsonalchemy.wrappers import JSONInteger
@@ -436,3 +437,37 @@ def test_immutability(JSONClass, value, schema):
             d = value
 
     assert 'is immutable' in str(excinfo.value)
+
+
+def test_calculated_fields_dict():
+
+    schema = load_schema_from_url(abs_path('schemas/calculated_dict.json'))
+
+    data = JSONObject({}, schema)
+
+    assert data['author'] == author(None, None)
+    data['author'] = 'Ellis, J.'
+    assert data['author'] == author(None, None)
+
+    schema['properties']['author'][
+           'calculated'] = "jsonalchemy.fortests.helpers.schema_title"
+
+    data = JSONObject({}, schema)
+
+    assert data['author'] == "Test calculated fields in a dictionary"
+
+
+def test_external_validation():
+
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    data = JSONObject({'authors': [{'given_name': 'Richard'}]}, schema)
+
+    data.validate()
+
+    data['authors'][0]['given_name'] = 'richard'
+
+    with pytest.raises(ValidationError) as excinfo:
+        data.validate()
+
+    assert "start with an uppercase" in str(excinfo.value)
