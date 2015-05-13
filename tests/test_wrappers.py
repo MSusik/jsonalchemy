@@ -446,11 +446,15 @@ def test_calculated_fields_dict():
     data = JSONObject({}, schema)
 
     assert data['author'] == author(None, None)
-    data['author'] = 'Ellis, J.'
+
+    with pytest.raises(NotImplementedError) as excinfo:
+        data['author'] = "But I didn't want to test"
+
+    assert "can't process author" in str(excinfo.value)
     assert data['author'] == author(None, None)
 
     schema['properties']['author'][
-           'calculated'] = "jsonalchemy.fortests.helpers.schema_title"
+           'getter'] = "jsonalchemy.fortests.helpers.schema_title"
 
     data = JSONObject({}, schema)
 

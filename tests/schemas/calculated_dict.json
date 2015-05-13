@@ -4,7 +4,8 @@
     "properties": {
         "author": {
             "type": "string",
-            "calculated": "jsonalchemy.fortests.helpers.author"          
+            "getter": "jsonalchemy.fortests.helpers.author",
+            "setter": "jsonalchemy.fortests.helpers.raise_error"
         }
     }
 }

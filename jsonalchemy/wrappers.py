@@ -115,7 +115,7 @@ class JSONObject(dict, JSONBase):
     def __getitem__(self, name):
         value_schema = self.schema.get('properties', {}).get(name, None)
         if value_schema:
-            function_path = value_schema.get('calculated', None)
+            function_path = value_schema.get('getter', None)
             if function_path:
                 function = import_string(function_path)
                 if function:
@@ -124,6 +124,13 @@ class JSONObject(dict, JSONBase):
 
     def __setitem__(self, name, value):
         value_schema = self.schema.get('properties', {}).get(name, None)
+        if value_schema:
+            function_path = value_schema.get('setter', None)
+            if function_path:
+                function = import_string(function_path)
+                if function:
+                    function(self.root, name, value)
+                    return
         dict.__setitem__(self, name, wrap(value, value_schema, self.root))
 
     def _set_schema(self, schema):

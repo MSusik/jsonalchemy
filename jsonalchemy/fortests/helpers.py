@@ -36,3 +36,7 @@ def isCorrectName(field):
 
 def schema_title(record, field):
     return record.schema['title']
+
+
+def raise_error(record, name, value):
+    raise NotImplementedError("We can't process %s" % name)
