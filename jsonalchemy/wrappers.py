@@ -146,6 +146,12 @@ class JSONObject(dict, JSONBase):
         for value in itervalues(self):
             value._validate_external()
 
+    def get(self, value, default=None):
+        try:
+            return self[value]
+        except KeyError:
+            return default
+
 
 class JSONArray(list, JSONBase):
 

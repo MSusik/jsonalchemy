@@ -448,17 +448,19 @@ def test_calculated_fields_dict():
     assert data['author'] == author(None, None)
 
     with pytest.raises(NotImplementedError) as excinfo:
-        data['author'] = "But I didn't want to test"
+        data['author'] = 'But I didn\'t want to test'
 
-    assert "can't process author" in str(excinfo.value)
+    assert 'can\'t process author' in str(excinfo.value)
     assert data['author'] == author(None, None)
 
     schema['properties']['author'][
-           'getter'] = "jsonalchemy.fortests.helpers.schema_title"
+           'getter'] = 'jsonalchemy.fortests.helpers.schema_title'
 
     data = JSONObject({}, schema)
 
-    assert data['author'] == "Test calculated fields in a dictionary"
+    assert data['author'] == 'Test calculated fields in a dictionary'
+    assert data.get('author', '') == 'Test calculated fields in a dictionary'
+    assert data.get('notthere', '') == ''
 
 
 def test_external_validation():
