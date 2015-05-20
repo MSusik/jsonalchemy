@@ -52,6 +52,7 @@ class JSONBase(object):
 
     def __init__(self, schema=None, root=None):
         self.schema = schema or {}
+        self.__doc__ = self.schema.get('description', '')
         if root:
             self.root = root
         else:

@@ -404,6 +404,13 @@ def test_setslice_deep_schema_change():
     data.validate()
 
 
+def test_descriptions_as_docstrings():
+    """Description fields become docstrings."""
+    data = JSONObject({}, {'description': 'docstring'})
+
+    assert data.__doc__ == 'docstring'
+
+
 @pytest.mark.parametrize('JSONClass, value, schema',
                          [(JSONString, 'verylongstring',
                            {'type': 'string', 'maxLength': 5}),
