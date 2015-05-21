@@ -92,11 +92,12 @@ class JSONBase(object):
         self.schema = schema
 
     def _validate_external(self):
-        validation_path = self.schema.get('validation', {})
-        if validation_path:
-            function = import_string(validation_path)
-            if function:
-                function(self)
+        try:
+            validation_path = self.schema['validation']
+            validation = import_string(validation_path)
+            validation(self)
+        except KeyError:
+            pass
 
 
 class JSONObject(dict, JSONBase):
