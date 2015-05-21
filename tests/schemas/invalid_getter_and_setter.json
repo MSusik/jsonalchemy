@@ -1,0 +1,10 @@
+{
+  "title": "Schema with invalid getter and setter",
+  "type": "object",
+  "properties": {
+    "invalid_getter_and_setter": {
+      "getter": "no.getter.here.py",
+      "setter": "no.setter.here.py"
+    }
+  }
+}

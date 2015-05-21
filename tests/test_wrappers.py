@@ -472,6 +472,21 @@ def test_calculated_fields_dict():
     assert data.get('notthere', '') == ''
 
 
+def test_invalid_getter_and_setter():
+    schema = load_schema_from_url(
+        abs_path('schemas/invalid_getter_and_setter.json'))
+
+    data = JSONObject({}, schema)
+
+    with pytest.raises(ImportStringError) as excinfo:
+        data['invalid_getter_and_setter']
+    assert 'No module named' in str(excinfo.value)
+
+    with pytest.raises(ImportStringError) as excinfo:
+        data['invalid_getter_and_setter'] = 'foo'
+    assert 'No module named' in str(excinfo.value)
+
+
 def test_external_validation():
 
     schema = load_schema_from_url(abs_path('schemas/complex.json'))
