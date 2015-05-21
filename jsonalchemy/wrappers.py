@@ -23,9 +23,11 @@
 
 from __future__ import unicode_literals
 
-from six import iteritems, itervalues
+from six import iteritems
+from six import itervalues
 from jsonschema import Draft4Validator
-from werkzeug import import_string
+from werkzeug.utils import import_string
+from werkzeug.utils import ImportStringError
 
 
 def wrap(value, value_schema, root):
@@ -113,25 +115,24 @@ class JSONObject(dict, JSONBase):
         pass
 
     def __getitem__(self, name):
-        value_schema = self.schema.get('properties', {}).get(name, None)
-        if value_schema:
-            function_path = value_schema.get('getter', None)
-            if function_path:
-                function = import_string(function_path)
-                if function:
-                    return function(self.root, self)
-        return dict.__getitem__(self, name)
+        try:
+            item_getter = self.schema['properties'][name]['getter']
+        except KeyError:
+            return dict.__getitem__(self, name)
+
+        getter = import_string(item_getter)
+        return getter(self.root, self)
 
     def __setitem__(self, name, value):
-        value_schema = self.schema.get('properties', {}).get(name, None)
-        if value_schema:
-            function_path = value_schema.get('setter', None)
-            if function_path:
-                function = import_string(function_path)
-                if function:
-                    function(self.root, name, value)
-                    return
-        dict.__setitem__(self, name, wrap(value, value_schema, self.root))
+        try:
+            item_setter = self.schema['properties'][name]['setter']
+        except KeyError:
+            item_schema = self.schema.get('properties', {}).get(name, None)
+            return dict.__setitem__(self, name, wrap(value, item_schema,
+                                                     self.root))
+
+        setter = import_string(item_setter)
+        setter(self.root, name, value)
 
     def _set_schema(self, schema):
         self.schema = schema
