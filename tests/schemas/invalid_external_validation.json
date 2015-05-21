@@ -1,0 +1,5 @@
+{
+  "title": "Schema with a non existent validation",
+  "type": "string",
+  "validation": "no.validation.here.py"
+}

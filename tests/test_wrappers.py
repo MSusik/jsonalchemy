@@ -36,6 +36,8 @@ from jsonschema import SchemaError
 from jsonschema import ValidationError
 from jsonschema.exceptions import UnknownType
 
+from werkzeug.utils import ImportStringError
+
 from helpers import abs_path
 
 
@@ -477,3 +479,14 @@ def test_external_validation():
         data.validate()
 
     assert "start with an uppercase" in str(excinfo.value)
+
+
+def test_invalid_external_validation():
+    schema = load_schema_from_url(
+        abs_path('schemas/invalid_external_validation.json'))
+
+    data = JSONString('foo', schema)
+
+    with pytest.raises(ImportStringError) as excinfo:
+        data.validate()
+    assert 'No module named' in str(excinfo.value)
