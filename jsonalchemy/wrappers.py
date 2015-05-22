@@ -23,6 +23,8 @@
 
 from __future__ import unicode_literals
 
+import weakref
+
 from jinja import Environment
 from six import iteritems
 from six import itervalues
@@ -39,15 +41,15 @@ def wrap(value, value_schema, root):
         return value
 
     if isinstance(value, dict):
-        return JSONObject(value, value_schema, root)
+        return JSONObject(value, value_schema, root())
     elif isinstance(value, list):
-        return JSONArray(value, value_schema, root)
+        return JSONArray(value, value_schema, root())
     elif isinstance(value, str):
-        return JSONString(value, value_schema, root)
+        return JSONString(value, value_schema, root())
     elif isinstance(value, int):
-        return JSONInteger(value, value_schema, root)
+        return JSONInteger(value, value_schema, root())
     elif isinstance(value, float):
-        return JSONNumber(value, value_schema, root)
+        return JSONNumber(value, value_schema, root())
     raise TypeError('Type not defined in JSON Schema.')
 
 
@@ -57,17 +59,21 @@ class JSONBase(object):
         self.schema = schema or {}
         self.__doc__ = self.schema.get('description', '')
         if root:
-            self.root = root
+            self.root = weakref.ref(root)
         else:
-            self.root = self
+            try:
+                self.root = weakref.ref(self)
+            except TypeError:
+                # Basic type, imitiate weakref
+                self.root = lambda: self
 
     def search(self, query):
         jsonpath_expr = parse(query)
         result = [match.value for match in jsonpath_expr.find(self)]
 
-        return wrap(result,
-                    {'type': 'array', 'items': [el.schema for el in result]},
-                    result)
+        return JSONArray(result, schema={'type': 'array',
+                                         'items': [el.schema for
+                                                   el in result]})
 
     @property
     def validation(parent):
@@ -137,11 +143,11 @@ class JSONObject(dict, JSONBase):
 
             template = Environment().from_string(item_template)
 
-            return template.render({k: self.root._get_from_path(v) for (k, v)
+            return template.render({k: self.root()._get_from_path(v) for (k, v)
                                     in iteritems(item_watch)})
 
         getter = import_string(item_getter)
-        return getter(self.root, self)
+        return getter(self.root(), self)
 
     def __setitem__(self, name, value):
         try:
@@ -152,7 +158,7 @@ class JSONObject(dict, JSONBase):
                                                      self.root))
 
         setter = import_string(item_setter)
-        setter(self.root, name, value)
+        setter(self.root(), name, value)
 
     def _set_schema(self, schema):
         self.schema = schema
