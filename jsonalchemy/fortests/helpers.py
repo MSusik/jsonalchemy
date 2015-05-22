@@ -28,7 +28,7 @@ def author(record, field):
 
 
 def isCorrectName(field):
-    """An author field in this example is correct when it has a comma."""
+    """An author field is correct if it starts with an uppercase."""
     if field[0] not in uppercase:
         raise ValidationError("The author name doesn't" +
                               " start with an uppercase.")
