@@ -25,9 +25,9 @@ from __future__ import unicode_literals
 
 from six import iteritems
 from six import itervalues
+from jsonpath_rw import parse
 from jsonschema import Draft4Validator
 from werkzeug.utils import import_string
-from werkzeug.utils import ImportStringError
 
 
 def wrap(value, value_schema, root):
@@ -59,6 +59,14 @@ class JSONBase(object):
             self.root = root
         else:
             self.root = self
+
+    def search(self, query):
+        jsonpath_expr = parse(query)
+        result = [match.value for match in jsonpath_expr.find(self)]
+
+        return wrap(result,
+                    {'type': 'array', 'items': [el.schema for el in result]},
+                    result)
 
     @property
     def validation(parent):
