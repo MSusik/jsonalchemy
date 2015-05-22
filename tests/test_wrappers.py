@@ -472,6 +472,20 @@ def test_calculated_fields_dict():
     assert data.get('notthere', '') == ''
 
 
+def test_derived_fields_dict():
+
+    schema = load_schema_from_url(abs_path('schemas/template.json'))
+
+    data = JSONObject({'first_name': 'John', 'last_name': 'Ellis'},
+                      schema=schema)
+
+    assert data['full_name'] == 'John Ellis'
+    data['full_name'] = 'John Smith'
+    assert data['full_name'] == 'John Ellis'
+    data['first_name'] = 'Jerry'
+    assert data['full_name'] == 'Jerry Ellis'
+
+
 def test_invalid_getter_and_setter():
     schema = load_schema_from_url(
         abs_path('schemas/invalid_getter_and_setter.json'))

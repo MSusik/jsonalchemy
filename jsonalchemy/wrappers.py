@@ -23,6 +23,7 @@
 
 from __future__ import unicode_literals
 
+from jinja import Environment
 from six import iteritems
 from six import itervalues
 from jsonschema import Draft4Validator
@@ -120,7 +121,16 @@ class JSONObject(dict, JSONBase):
         try:
             item_getter = self.schema['properties'][name]['getter']
         except KeyError:
-            return dict.__getitem__(self, name)
+            try:
+                item_template = self.schema['properties'][name]['template']
+                item_watch = self.schema['properties'][name]['watch']
+            except KeyError:
+                return dict.__getitem__(self, name)
+
+            template = Environment().from_string(item_template)
+
+            return template.render({k: self.root._get_from_path(v) for (k, v)
+                                    in iteritems(item_watch)})
 
         getter = import_string(item_getter)
         return getter(self.root, self)
@@ -154,6 +164,13 @@ class JSONObject(dict, JSONBase):
             return self[value]
         except KeyError:
             return default
+
+    def _get_from_path(self, path):
+        split_path = path.split('.')
+        current = self
+        for key in split_path:
+            current = current[key]
+        return current
 
 
 class JSONArray(list, JSONBase):
