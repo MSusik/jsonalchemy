@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "first_name": {
+      "type": "string"
+    },
+    "last_name": {
+      "type": "string"
+    },
+    "full_name": {
+      "type": "string",
+      "template": "{{fname}} {{lname}}",
+      "watch": {
+        "fname": "first_name",
+        "lname": "last_name"
+      }
+    }
+  }
+}

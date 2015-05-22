@@ -84,6 +84,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'jinja',
+        'jsonpath-rw',
         'jsonschema',
         'six',
     ],

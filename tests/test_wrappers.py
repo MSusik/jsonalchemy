@@ -526,3 +526,22 @@ def test_invalid_external_validation():
     with pytest.raises(ImportStringError) as excinfo:
         data.validate()
     assert 'No module named' in str(excinfo.value)
+
+
+def test_jsonpath_search():
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    data = JSONObject({
+        'authors': [
+            {'family_name': 'Higgs'},
+            {'family_name': 'Englert'},
+        ]
+    }, schema=schema)
+
+    result = data.search('authors[*].family_name')
+
+    assert len(result) == 2
+    assert isinstance(result, JSONArray)
+
+    assert isinstance(result[0], JSONString)
+    assert result[1] == 'Englert'
