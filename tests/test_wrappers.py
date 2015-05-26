@@ -454,13 +454,13 @@ def test_calculated_fields_dict():
 
     data = JSONObject({}, schema)
 
-    assert data['author'] == author(None, None)
+    assert data['author'] == author(None)
 
     with pytest.raises(NotImplementedError) as excinfo:
         data['author'] = 'But I didn\'t want to test'
 
     assert 'can\'t process author' in str(excinfo.value)
-    assert data['author'] == author(None, None)
+    assert data['author'] == author(None)
 
     schema['properties']['author'][
            'getter'] = 'jsonalchemy.fortests.helpers.schema_title'
@@ -545,3 +545,16 @@ def test_jsonpath_search():
 
     assert isinstance(result[0], JSONString)
     assert result[1] == 'Englert'
+
+
+def test_parent_accessibility():
+
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    data = JSONObject({
+        'authors': [{'family_name': 'Ellis'}]
+    }, schema=schema)
+
+    assert data['authors'][0]['family_name'].parent()['family_name'] == 'Ellis'
+    assert data['authors'][0].parent()[0]['family_name'] == 'Ellis'
+    assert data['authors'].parent()['authors'][0]['family_name'] == 'Ellis'

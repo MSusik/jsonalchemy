@@ -23,7 +23,7 @@ from jsonschema import ValidationError
 from string import uppercase
 
 
-def author(record, field):
+def author(field):
     return "Smith, J."
 
 
@@ -34,9 +34,9 @@ def isCorrectName(field):
                               " start with an uppercase.")
 
 
-def schema_title(record, field):
-    return record.schema['title']
+def schema_title(field):
+    return field.root().schema['title']
 
 
-def raise_error(record, name, value):
+def raise_error(field, name, value):
     raise NotImplementedError("We can't process %s" % name)
