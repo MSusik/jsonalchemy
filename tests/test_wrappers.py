@@ -607,3 +607,26 @@ def test_external_ref():
     }, schema=schema)
 
     assert data['authors'][0]['family_name'].schema == {}
+
+
+def test_enum():
+
+    schema = load_schema_from_url(abs_path('schemas/enum.json'))
+
+    data = JSONObject({"enumed_field": 2}, schema=schema)
+
+    data.validate()
+
+    data['enumed_field'] = 3
+
+    with pytest.raises(ValidationError) as excinfo:
+        data.validate()
+
+    assert 'is not in enum' in str(excinfo.value)
+
+    data['enumed_field'] = 'aaa'
+    with pytest.raises(ValidationError) as excinfo:
+        data.validate()
+
+    # Enum error takes precedence
+    assert 'is not in enum' in str(excinfo.value)

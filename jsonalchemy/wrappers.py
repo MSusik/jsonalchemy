@@ -29,7 +29,9 @@ import weakref
 from jinja import Environment
 from jsonpath_rw import parse
 from jsonschema import Draft4Validator
-from requests import get, exceptions
+from jsonschema import ValidationError
+from requests import exceptions
+from requests import get
 from six import iteritems
 from six import itervalues
 from werkzeug.utils import import_string
@@ -155,6 +157,14 @@ class JSONBase(object):
             validation_path = self.schema['validation']
             validation = import_string(validation_path)
             validation(self)
+        except KeyError:
+            pass
+        try:
+            enum_path = self.schema['enumSource']
+            enum = self.root().schema['properties'][enum_path]
+            if self not in enum:
+                raise ValidationError("%s is not in enum %s" % (self,
+                                                                enum_path))
         except KeyError:
             pass
 
