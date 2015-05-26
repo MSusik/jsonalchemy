@@ -64,6 +64,7 @@ with open(os.path.join('jsonalchemy', 'version.py'), 'rt') as f:
     ).group('version')
 
 tests_require = [
+    'httpretty',
     'pytest-cache>=1.0',
     'pytest-cov>=1.8.0',
     'pytest-pep8>=1.0.6',
@@ -86,6 +87,7 @@ setup(
         'jinja',
         'jsonpath-rw',
         'jsonschema',
+        'requests',
         'six',
     ],
     extras_require={

@@ -1,7 +1,12 @@
 {
+    "definitions": {
+        "some_string": {
+            "type": "string"
+        }
+    },
     "title": "List schema",
     "type": "array",
     "items": {
-        "type": "string"
+        "$ref": "#/definitions/some_string"
     }
 }

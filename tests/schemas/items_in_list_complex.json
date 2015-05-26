@@ -1,4 +1,14 @@
 {
+  "definitions": {
+    "third": {
+      "type": "object",
+      "properties": {
+        "my_field": {
+            "type": "string"
+        }
+      }
+    }
+  },
   "type": "array",
   "items": [
     {
@@ -8,12 +18,7 @@
       "type": "string"
     },
     {
-      "type": "object",
-      "properties": {
-        "my_field": {
-            "type": "string"
-        }
-      }
+      "$ref": "#/definitions/third"
     },
     {
       "type": "array",

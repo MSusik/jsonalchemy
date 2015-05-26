@@ -23,13 +23,15 @@
 
 from __future__ import unicode_literals
 
+import json
 import weakref
 
 from jinja import Environment
-from six import iteritems
-from six import itervalues
 from jsonpath_rw import parse
 from jsonschema import Draft4Validator
+from requests import get, exceptions
+from six import iteritems
+from six import itervalues
 from werkzeug.utils import import_string
 
 
@@ -56,11 +58,13 @@ def wrap(value, value_schema, root, parent):
 class JSONBase(object):
 
     def __init__(self, schema=None, root=None, parent=None):
-        self.schema = schema or {}
-        self.__doc__ = self.schema.get('description', '')
+        schema = schema or {}
         if root:
+            self.schema = schema
             self.root = weakref.ref(root)
         else:
+            self.schema = schema
+            self.schema = self._resolve_refs_in_schema(schema)
             try:
                 self.root = weakref.ref(self)
             except TypeError:
@@ -75,6 +79,8 @@ class JSONBase(object):
             except TypeError:
                 # Basic type, imitiate weakref
                 self.parent = lambda: self
+
+        self.__doc__ = self.schema.get('description', '')
 
     def search(self, query):
         jsonpath_expr = parse(query)
@@ -114,6 +120,33 @@ class JSONBase(object):
         }
         return Draft4Validator(schema=self.schema, types=types).validate(self)
 
+    def _resolve_refs_in_schema(self, schema):
+        if isinstance(schema, dict):
+            if '$ref' in schema:
+                if schema['$ref'].startswith('#'):
+                    return JSONObject._get_from_path(schema['$ref'][2:],
+                                                     self.schema, "/")
+                else:
+                    response = get(schema["$ref"])
+                    try:
+                        response.raise_for_status()
+                        return json.loads(response.content)
+                    except exceptions.RequestException:
+                        return {}
+            if 'items' in schema:
+                items = schema['items']
+                if isinstance(items, list):
+                    schema['items'] = [self._resolve_refs_in_schema(i) for i in
+                                       schema['items']]
+                else:
+                    schema['items'] = \
+                        self._resolve_refs_in_schema(schema['items'])
+            elif 'properties' in schema:
+                schema['properties'] = {k: self._resolve_refs_in_schema(v) for
+                                        (k, v) in
+                                        iteritems(schema['properties'])}
+        return schema
+
     def _set_schema(self, schema):
         self.schema = schema
 
@@ -152,8 +185,8 @@ class JSONObject(dict, JSONBase):
 
             template = Environment().from_string(item_template)
 
-            return template.render({k: self.root()._get_from_path(v) for (k, v)
-                                    in iteritems(item_watch)})
+            return template.render({k: self.root()._get_from_path(v, self) for
+                                    (k, v) in iteritems(item_watch)})
 
         getter = import_string(item_getter)
         return getter(self)
@@ -188,11 +221,15 @@ class JSONObject(dict, JSONBase):
         except KeyError:
             return default
 
-    def _get_from_path(self, path):
-        split_path = path.split('.')
-        current = self
+    @classmethod
+    def _get_from_path(cls, path, holder, delimiter="."):
+        split_path = path.split(delimiter)
+        current = holder
         for key in split_path:
-            current = current[key]
+            try:
+                current = current[key]
+            except KeyError:
+                raise KeyError("Path %s is not accessible" % path)
         return current
 
 

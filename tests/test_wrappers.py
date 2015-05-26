@@ -21,6 +21,7 @@
 
 from __future__ import absolute_import
 
+import httpretty
 import json
 import pytest
 
@@ -558,3 +559,51 @@ def test_parent_accessibility():
     assert data['authors'][0]['family_name'].parent()['family_name'] == 'Ellis'
     assert data['authors'][0].parent()[0]['family_name'] == 'Ellis'
     assert data['authors'].parent()['authors'][0]['family_name'] == 'Ellis'
+
+
+def test_invalid_ref():
+
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    schema['properties']['authors']['items'][
+           'properties']['family_name']['$ref'] = '#'
+
+    with pytest.raises(KeyError) as excinfo:
+        data = JSONObject({
+            'authors': [{'family_name': 'Ellis'}]
+        }, schema=schema)
+
+    assert 'is not accessible' in str(excinfo.value)
+
+
+@httpretty.activate
+def test_external_ref():
+    httpretty.register_uri(httpretty.GET, "http://www.json.com",
+                           body='{"type": "string"}',
+                           content_type="application/json")
+    httpretty.register_uri(httpretty.GET, "http://www.no.com",
+                           status=500,
+                           content_type="application/json")
+
+    schema = load_schema_from_url(abs_path('schemas/external.json'))
+
+    data = JSONObject({
+        'authors': [{'family_name': 'Ellis'}]
+    }, schema=schema)
+
+    data.validate()
+    data['authors'][0]['family_name'] = 7
+
+    with pytest.raises(ValidationError) as excinfo:
+        data.validate()
+
+    assert 'is not of type' in str(excinfo.value)
+
+    schema['properties']['authors']['items']['properties'][
+           'family_name']['$ref'] = "http://www.no.com"
+
+    data = JSONObject({
+        'authors': [{'family_name': 'Ellis'}]
+    }, schema=schema)
+
+    assert data['authors'][0]['family_name'].schema == {}

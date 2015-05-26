@@ -1,12 +1,4 @@
 {
-
-    "definitions": {
-        "family_name_definitions": {
-            "type": "string",
-            "minLength": 2,
-            "validation": "jsonalchemy.fortests.helpers.isCorrectName"
-        }
-    },
     "title": "Test complex schema",
     "type": "object",
     "properties": {
@@ -21,7 +13,7 @@
                         "validation": "jsonalchemy.fortests.helpers.isCorrectName"  
                     },
                     "family_name": {
-                        "$ref": "#/definitions/family_name_definitions"
+                        "$ref": "http://www.json.com"
                     },
                     "affiliation": {
                         "type": "string",
