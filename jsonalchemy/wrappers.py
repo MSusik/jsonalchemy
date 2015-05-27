@@ -63,24 +63,24 @@ class JSONBase(object):
         schema = schema or {}
         if root:
             self.schema = schema
-            self.root = weakref.ref(root)
+            self._root = weakref.ref(root)
         else:
             self.schema = schema
             self.schema = self._resolve_refs_in_schema(schema)
             try:
-                self.root = weakref.ref(self)
+                self._root = weakref.ref(self)
             except TypeError:
                 # Basic type, imitiate weakref
-                self.root = lambda: self
+                self._root = lambda: self
 
         if parent is not None:
-            self.parent = weakref.ref(parent)
+            self._parent = weakref.ref(parent)
         else:
             try:
-                self.parent = weakref.ref(self)
+                self._parent = weakref.ref(self)
             except TypeError:
                 # Basic type, imitiate weakref
-                self.parent = lambda: self
+                self._parent = lambda: self
 
         self.__doc__ = self.schema.get('description', '')
 
@@ -91,6 +91,14 @@ class JSONBase(object):
         return JSONArray(result, schema={'type': 'array',
                                          'items': [el.schema for
                                                    el in result]})
+
+    @property
+    def parent(self):
+        return self._parent()
+
+    @property
+    def root(self):
+        return self._root()
 
     @property
     def validation(parent):
@@ -161,7 +169,7 @@ class JSONBase(object):
             pass
         try:
             enum_path = self.schema['enumSource']
-            enum = self.root().schema['properties'][enum_path]
+            enum = self._root().schema['properties'][enum_path]
             if self not in enum:
                 raise ValidationError("%s is not in enum %s" % (self,
                                                                 enum_path))
@@ -195,7 +203,7 @@ class JSONObject(dict, JSONBase):
 
             template = Environment().from_string(item_template)
 
-            return template.render({k: self.root()._get_from_path(v, self) for
+            return template.render({k: self._root()._get_from_path(v, self) for
                                     (k, v) in iteritems(item_watch)})
 
         getter = import_string(item_getter)
@@ -207,7 +215,7 @@ class JSONObject(dict, JSONBase):
         except KeyError:
             item_schema = self.schema.get('properties', {}).get(name, None)
             return dict.__setitem__(self, name, wrap(value, item_schema,
-                                                     self.root, lambda: self))
+                                                     self._root, lambda: self))
 
         setter = import_string(item_setter)
         setter(self, name, value)
@@ -259,21 +267,21 @@ class JSONArray(list, JSONBase):
 
     def __setitem__(self, index, value):
         list.__setitem__(self, index, wrap(value, self._get_schema(index),
-                         self.root, lambda: self))
+                         self._root, lambda: self))
 
     def __setslice__(self, i, j, obj):
         # O(n)!
         list.__setslice__(self, i, j, [wrap(x, self._get_schema(i + index),
-                          self.root, lambda: self) for
+                          self._root, lambda: self) for
                           index, x in enumerate(obj)])
         self._recompute_schemas(i + len(obj))
 
     def append(self, obj):
         list.append(self, wrap(obj, self._get_schema(max(len(self), 0)),
-                    self.root, lambda: self))
+                    self._root, lambda: self))
 
     def extend(self, obj):
-        list.extend(self, [wrap(x, self._get_schema(index), self.root,
+        list.extend(self, [wrap(x, self._get_schema(index), self._root,
                            lambda: self) for index, x in enumerate(obj)])
 
     def insert(self, index, obj):
@@ -281,7 +289,7 @@ class JSONArray(list, JSONBase):
         index = max(min(len(self), index), -len(self))
         if index < 0:
             index = len(self) + index
-        list.insert(self, index, wrap(obj, self._get_schema(index), self.root,
+        list.insert(self, index, wrap(obj, self._get_schema(index), self._root,
                                       lambda: self))
         self._recompute_schemas(index)
 

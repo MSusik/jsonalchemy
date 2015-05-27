@@ -556,9 +556,9 @@ def test_parent_accessibility():
         'authors': [{'family_name': 'Ellis'}]
     }, schema=schema)
 
-    assert data['authors'][0]['family_name'].parent()['family_name'] == 'Ellis'
-    assert data['authors'][0].parent()[0]['family_name'] == 'Ellis'
-    assert data['authors'].parent()['authors'][0]['family_name'] == 'Ellis'
+    assert data['authors'][0]['family_name'].parent['family_name'] == 'Ellis'
+    assert data['authors'][0].parent[0]['family_name'] == 'Ellis'
+    assert data['authors'].parent['authors'][0]['family_name'] == 'Ellis'
 
 
 def test_invalid_ref():

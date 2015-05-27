@@ -35,7 +35,7 @@ def isCorrectName(field):
 
 
 def schema_title(field):
-    return field.root().schema['title']
+    return field.root.schema['title']
 
 
 def raise_error(field, name, value):
