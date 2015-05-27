@@ -1,0 +1,14 @@
+{
+    "definitions": {
+        "enum_definition": [2,8,236]
+    },
+    "properties": {
+        "some_enum": {
+            "$ref": "#/definitions/enum_definition"
+        },
+        "enumed_field": {
+            "type": "number",
+            "enumSource": "some_enum"
+        }
+    }
+}
